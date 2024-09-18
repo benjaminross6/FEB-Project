@@ -1,5 +1,8 @@
+#before pulling/running look at path for excel file
+
 import math
 import sys
+import pandas as pd
 
 sys.setrecursionlimit(1000000)
 
@@ -12,6 +15,12 @@ drag_coefficient = 0.8
 downforce_coefficient = 0.0
 frontal_area = 1.0
 drivetrain_efficiency = 0.90
+
+#related to the motor
+#specific to device running the code
+motor_data = '/users/benny/downloads/Motor Curves.xlsx'
+GHCols = pd.read_excel(motor_data, usecols = [6,7])
+
 
 #track-related values
 g = 9.81
@@ -52,12 +61,28 @@ def lap_sim(tic, timec, speedc, disc, energyc):
     disc += dr
     a = acceleration(speedc, disc)
     speedc += a * tic
-    energyc += abs(a) * vehicle_mass * dr
+
+
+    # https://www.public.asu.edu/~grover/willys/speed.html#:~:text=Engine%20RPM%20divided%20by%20total,gives%20vehicle's%20speed%20of%20travel.
+    #speed = rpm / drive_ratio * 2 * tire_radius
+    rpm = speedc * drive_ratio / (2 * tire_radius)
+
+    #get torque value corresponding to motor speed and then use it to find force and add to energy
+    rpms = GHCols["Motor Speed (RPM)"]
+    torques = GHCols["Torque (Capped at 80kW) (Nm)"]
+    for i in range(52):
+        if rpm < rpms.get(i):
+            print(i)
+            #not sure this is right, got it off of Google. Should their be a pi?
+            energyc += torques.get(i) * drive_ratio / tire_radius * dr
+            break;
+
+    #energyc += abs(a) * vehicle_mass * dr
     if disc < 500:
         return lap_sim(tic, timec + tic, speedc, disc, energyc)
     else:
         return [round(timec + (math.pi*r/max_curve_speed), 2), round(energyc,-1)]
 
-data = lap_sim(.001, 0, 0, 0, 0)
+data = lap_sim(.1, 0, 0, 0, 0)
 print(data[0], " seconds overall")
 print(data[1]/pow(10,3), " kJ used by engine")
